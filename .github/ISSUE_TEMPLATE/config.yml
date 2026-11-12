@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/statusleak/statusleak-node/security/advisories/new
+    about: Please report security issues privately.
+  - name: Account, billing or dashboard questions
+    url: mailto:support@statusleak.com
+    about: For anything about your StatusLeak account rather than the SDK.

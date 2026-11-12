@@ -1,0 +1,29 @@
+name: Bug report
+description: Something isn't recorded, is recorded wrong, or the SDK affects your app
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: A minimal snippet if possible (remove any keys).
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: "@statusleak/node, Node.js, and the HTTP client or provider SDK (e.g. openai 5.2.0)"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug output
+      description: Run with STATUSLEAK_DEBUG=1 and paste the [statusleak] lines.
+      render: text

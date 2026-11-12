@@ -1,0 +1,86 @@
+{
+    "v": 1,
+    "sdk": "node/0.1.0",
+    "service": "test-app",
+    "environment": "test",
+    "rows": [
+        {
+            "bucket": "2026-11-12T16:21:00.000Z",
+            "host": "127.0.0.1",
+            "method": "POST",
+            "path": "/v1/chat/completions",
+            "status": 200,
+            "error": null,
+            "count": 1,
+            "durationSumMs": 7,
+            "ttfbSumMs": 6,
+            "ttfbCount": 1,
+            "hist": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "rlRemainingMin": 42
+        },
+        {
+            "bucket": "2026-11-12T16:21:00.000Z",
+            "host": "127.0.0.1",
+            "method": "GET",
+            "path": "/down",
+            "status": null,
+            "error": "connect",
+            "count": 1,
+            "durationSumMs": 1,
+            "ttfbSumMs": 0,
+            "ttfbCount": 0,
+            "hist": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "rlRemainingMin": null
+        },
+        {
+            "bucket": "2026-11-12T16:21:00.000Z",
+            "host": "127.0.0.1",
+            "method": "GET",
+            "path": "/fail/:id",
+            "status": 500,
+            "error": null,
+            "count": 1,
+            "durationSumMs": 1,
+            "ttfbSumMs": 0,
+            "ttfbCount": 0,
+            "hist": [
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ],
+            "rlRemainingMin": null
+        }
+    ]
+}

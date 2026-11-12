@@ -1,0 +1,85 @@
+{
+    "name": "@statusleak/node",
+    "version": "0.1.0",
+    "description": "See how the third-party APIs your Node.js app calls are performing — for you.",
+    "license": "MIT",
+    "author": "StatusLeak <support@statusleak.com>",
+    "homepage": "https://statusleak.com/docs",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/statusleak/statusleak-node.git"
+    },
+    "bugs": {
+        "url": "https://github.com/statusleak/statusleak-node/issues"
+    },
+    "keywords": [
+        "monitoring",
+        "api",
+        "status",
+        "observability",
+        "openai",
+        "stripe",
+        "anthropic",
+        "outage",
+        "third-party",
+        "diagnostics_channel"
+    ],
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./auto": {
+            "import": {
+                "types": "./dist/auto.d.ts",
+                "default": "./dist/auto.js"
+            },
+            "require": {
+                "types": "./dist/auto.d.cts",
+                "default": "./dist/auto.cjs"
+            }
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
+    ],
+    "sideEffects": [
+        "./dist/auto.js",
+        "./dist/auto.cjs"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "prepublishOnly": "npm run typecheck && npm test && npm run build",
+        "demo": "npm run build && node scripts/demo-traffic.mjs"
+    },
+    "devDependencies": {
+        "@types/node": "^24.0.0",
+        "openai": "^5.0.0",
+        "stripe": "^22.1.1",
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0",
+        "vitest": "^4.1.7"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
