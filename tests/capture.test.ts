@@ -17,6 +17,9 @@ let ingest: http.Server;
 let ingestUrl: string;
 let refusal: { status: number; body: Record<string, unknown> } | null = null;
 let batches: any[] = [];
+// What GET /v1/sdk/config answers, and how often it was asked.
+let config: { status: number; hosts: string[] } = { status: 200, hosts: [] };
+let configRequests = 0;
 let client: StatusLeakClient;
 
 function json(res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -54,6 +57,11 @@ beforeAll(async () => {
         const chunks: Buffer[] = [];
         req.on('data', (c) => chunks.push(c));
         req.on('end', () => {
+            if (req.url === '/v1/sdk/config') {
+                configRequests += 1;
+                json(res, config.status, { hosts: config.hosts, customHosts: [] });
+                return;
+            }
             if (req.url === '/v1/ingest' && refusal) {
                 json(res, refusal.status, refusal.body);
                 return;
@@ -82,6 +90,8 @@ afterAll(() => {
 beforeEach(() => {
     batches = [];
     refusal = null;
+    config = { status: 200, hosts: [] };
+    configRequests = 0;
     client = new StatusLeakClient({
         apiKey: 'sl_sdk_test', endpoint: ingestUrl, service: 'test-app', environment: 'test',
         extraHosts: ['127.0.0.1'], flushIntervalMs: 3_600_000,
@@ -196,6 +206,69 @@ describe('capture', () => {
             ['GET', '/v1/customers/:id', 200],
             ['POST', '/v1/chat/completions', 200],
         ]);
+    });
+});
+
+describe('host list refresh', () => {
+    // A client whose refresh timers are short enough to watch in a test.
+    function quickClient(refreshMs: number, retryMs: number): StatusLeakClient {
+        const c = new StatusLeakClient({ apiKey: 'sl_sdk_test', endpoint: ingestUrl, flushIntervalMs: 3_600_000 });
+        Object.assign(c as unknown as object, { configRefreshMs: refreshMs, configRetryMs: retryMs });
+        return c;
+    }
+
+    function records(c: StatusLeakClient, host: string): boolean {
+        return (c as unknown as { matcher: { matches(h: string): boolean } }).matcher.matches(host);
+    }
+
+    async function until(check: () => boolean): Promise<void> {
+        const deadline = Date.now() + 2_000;
+        while (!check() && Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 10));
+        }
+    }
+
+    it('picks up providers added while the app keeps running', async () => {
+        config.hosts = ['api.first-provider.test'];
+        const c = quickClient(50, 3_600_000);
+        c.start();
+        await until(() => records(c, 'api.first-provider.test'));
+        expect(records(c, 'api.first-provider.test')).toBe(true);
+        expect(records(c, 'api.added-later.test')).toBe(false);
+
+        config.hosts = ['api.first-provider.test', 'api.added-later.test'];
+        await until(() => records(c, 'api.added-later.test'));
+        expect(records(c, 'api.added-later.test')).toBe(true);
+        // The built-in list always stays.
+        expect(records(c, 'api.openai.com')).toBe(true);
+        await c.shutdown();
+    });
+
+    it('retries sooner after a failed fetch, then settles on the normal interval', async () => {
+        config = { status: 503, hosts: ['api.added-later.test'] };
+        const c = quickClient(3_600_000, 30);
+        c.start();
+        await until(() => configRequests >= 2);
+        expect(configRequests).toBeGreaterThanOrEqual(2);
+        expect(records(c, 'api.added-later.test')).toBe(false);
+
+        config.status = 200;
+        await until(() => records(c, 'api.added-later.test'));
+        expect(records(c, 'api.added-later.test')).toBe(true);
+        const after = configRequests;
+        await new Promise((r) => setTimeout(r, 150));
+        expect(configRequests).toBe(after);
+        await c.shutdown();
+    });
+
+    it('stops refreshing after shutdown', async () => {
+        const c = quickClient(30, 30);
+        c.start();
+        await until(() => configRequests >= 2);
+        await c.shutdown();
+        const after = configRequests;
+        await new Promise((r) => setTimeout(r, 150));
+        expect(configRequests).toBeLessThanOrEqual(after + 1);
     });
 });
 

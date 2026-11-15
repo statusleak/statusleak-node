@@ -38,6 +38,10 @@ databases, internal APIs). Emails and phone numbers in paths are replaced too
 (`/bounces/jane@acme.com` → `/bounces/:id`). Add other API hosts with `extraHosts`
 or as custom hosts in Settings.
 
+The list of known providers ships with the SDK and is refreshed from StatusLeak
+at startup and then hourly, so providers added later (and custom hosts set in
+Settings) are picked up without an upgrade or a restart.
+
 ## How it works
 
 It listens on Node's built-in [diagnostics channels](https://nodejs.org/api/diagnostics_channel.html)

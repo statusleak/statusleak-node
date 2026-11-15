@@ -34,6 +34,10 @@ const QUOTA_BACKOFF_MS = 10 * 60 * 1000;
 // After the plan's service limit refused this service, check again hourly
 // (an upgrade or a new billing period lifts it).
 const SERVICE_LIMIT_BACKOFF_MS = 60 * 60 * 1000;
+// Re-fetch the host list from the server hourly, so a long-running process picks
+// up providers added after it started; after a failed fetch, try again sooner.
+const CONFIG_REFRESH_MS = 60 * 60 * 1000;
+const CONFIG_RETRY_MS = 5 * 60 * 1000;
 // A failed batch is retried once (merged into the next flush), then dropped.
 const MAX_ATTEMPTS = 2;
 const LABEL_RE = /^[A-Za-z0-9._-]{1,64}$/;
@@ -83,6 +87,9 @@ export class StatusLeakClient {
     private readonly matcher: HostMatcher;
     private readonly capture: Capture;
     private timer: NodeJS.Timeout | null = null;
+    private configTimer: NodeJS.Timeout | null = null;
+    private configRefreshMs = CONFIG_REFRESH_MS;
+    private configRetryMs = CONFIG_RETRY_MS;
     private flushing: Promise<void> | null = null;
     private retry: { rows: Row[]; attempts: number } | null = null;
     private pausedUntil = 0;
@@ -135,7 +142,7 @@ export class StatusLeakClient {
         this.capture.start();
         this.schedule();
         process.on('beforeExit', this.onBeforeExit);
-        void this.loadConfig();
+        void this.refreshConfig();
         this.log(`started (service=${this.service}, environment=${this.environment})`);
     }
 
@@ -159,6 +166,10 @@ export class StatusLeakClient {
         if (this.timer) {
             clearTimeout(this.timer);
             this.timer = null;
+        }
+        if (this.configTimer) {
+            clearTimeout(this.configTimer);
+            this.configTimer = null;
         }
         process.off('beforeExit', this.onBeforeExit);
         this.capture.stop();
@@ -272,15 +283,32 @@ export class StatusLeakClient {
         }
     }
 
+    // Loads the config now, then again on a timer for as long as the SDK runs.
+    private async refreshConfig(): Promise<void> {
+        const loaded = await this.loadConfig();
+        if (!this.started) {
+            return;
+        }
+        let delay = this.configRetryMs;
+        if (loaded) {
+            delay = this.configRefreshMs;
+        }
+        this.configTimer = setTimeout(() => {
+            void this.refreshConfig();
+        }, delay);
+        this.configTimer.unref();
+    }
+
     // Picks up newly added providers and the org's custom hosts without an SDK upgrade.
-    private async loadConfig(): Promise<void> {
+    // Returns whether the server answered.
+    private async loadConfig(): Promise<boolean> {
         try {
             const res = await fetch(`${this.endpoint}/v1/sdk/config`, {
                 headers: { 'Authorization': `Bearer ${this.apiKey}`, 'User-Agent': `statusleak-node/${VERSION}` },
                 signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
             });
             if (!res.ok) {
-                return;
+                return false;
             }
             const config = await res.json() as { hosts?: unknown; customHosts?: unknown; flushIntervalMs?: unknown };
             const hosts = [config.hosts, config.customHosts].flatMap((h) => (Array.isArray(h) ? h.filter((x): x is string => typeof x === 'string') : []));
@@ -290,8 +318,10 @@ export class StatusLeakClient {
             if (typeof config.flushIntervalMs === 'number' && config.flushIntervalMs >= MIN_FLUSH_MS) {
                 this.flushIntervalMs = config.flushIntervalMs;
             }
+            return true;
         } catch (err) {
             this.log('could not load remote config; using built-in host list', err);
+            return false;
         }
     }
 
